@@ -1,6 +1,6 @@
 #include <cooperative/cuda/tag.h>
-#include <cooperative/cuda/for_each.h>
 #include <cooperative/cuda/functional.h>
+#include <cooperative/cuda/transform.h>
 #include <thrust/iterator/retag.h>
 #include <thrust/device_vector.h>
 
@@ -13,6 +13,11 @@
 template<typename T>
 struct multiply_by_reduction
     : public cooperative::cuda::unary_cooperative_function<T, T> {
+    typedef cooperative::cuda::unary_cooperative_function<T, T> super_t;
+    __host__
+    multiply_by_reduction()
+        : super_t(cooperative::cuda::group_config(64, 64 * sizeof(T))) {}
+    
     using cooperative::cuda::unary_cooperative_function<T, T>::g;
     __device__
     T operator()(const T& v) const {
@@ -39,22 +44,11 @@ int main() {
     thrust::counting_iterator<int> x;
     int length = 10;
     thrust::device_vector<int> y(length);
-    // thrust::transform(thrust::retag<cooperative::cuda::tag>(x),
-    //                   thrust::retag<cooperative::cuda::tag>(x+length),
-    //                   thrust::retag<cooperative::cuda::tag>(y.begin()),
-    //                   multiply_by_reduction<int>());
+    thrust::transform(thrust::retag<cooperative::cuda::tag>(x),
+                      thrust::retag<cooperative::cuda::tag>(x+length),
+                      thrust::retag<cooperative::cuda::tag>(y.begin()),
+                      multiply_by_reduction<int>());
 
-    typedef thrust::zip_iterator<thrust::tuple<thrust::counting_iterator<int>,
-                                               typename thrust::device_vector<int>::iterator> > the_iterator;
-    
-    
-    thrust::for_each(thrust::retag<cooperative::cuda::tag>(
-                         the_iterator(thrust::make_tuple(x, y.begin()))),
-                     thrust::retag<cooperative::cuda::tag>(
-                         the_iterator(thrust::make_tuple(x+length, y.end()))),
-                     cooperative::cuda::unary_cooperative_transform_functor<
-                         multiply_by_reduction<int> >(
-                             multiply_by_reduction<int>()));
 
     thrust::copy(y.begin(), y.end(), std::ostream_iterator<int>(std::cout, "\n"));
                      

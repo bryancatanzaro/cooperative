@@ -25,8 +25,7 @@ struct for_each_n_closure
     __device__ __thrust_forceinline__
     result_type operator()(void) {
         extern __shared__ char scratch[];
-        //XXX Forward scratch size
-        thread_group g(scratch, /*dummy*/0);
+        thread_group g(scratch, f.get_config().scratch_size);
         f.set_group(g);
         Size i = g.group_id();
         int number_of_groups = g.number_of_groups();
@@ -62,8 +61,8 @@ Iterator for_each(tag, Iterator first, Iterator last, Function f)
 
   //dummy values
   size_t n_blocks = 30;
-  size_t n_threads = 256;
-  size_t n_scratch = n_threads * sizeof(int);
+  size_t n_threads = f.get_config().group_size;
+  size_t n_scratch = f.get_config().scratch_size;
 
   launch_closure_by_value<for_each_n_closure<Iterator,int,Function> >
       <<<n_blocks, n_threads, n_scratch>>>(
