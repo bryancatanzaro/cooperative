@@ -33,9 +33,7 @@ struct multiply_by_reduction
             g.barrier();
             offset >>= 1;
         }
-        
         return scratch[local_id];
-        return g.local_thread_id();
     }
 
 };
