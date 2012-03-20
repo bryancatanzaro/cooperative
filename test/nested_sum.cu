@@ -5,6 +5,7 @@
 #include <thrust/device_vector.h>
 #include <cooperative/group_config.h>
 #include <cooperative/sequences/uniform_sequence.h>
+#include <cooperative/sequences/make_uniform_sequence.h>
 #include <cooperative/sequences/sequence_iterator.h>
 #include <iostream>
 #include <thrust/iterator/constant_iterator.h>
@@ -27,7 +28,7 @@ struct group_sum
         for(int i = local_id; i < v.size(); i += group_size) {
             accumulator += v[i];
         }
-        //Block parallel sum
+        //Simple block parallel sum
         T* scratch = group.template scratch<T>();
         scratch[local_id] = accumulator;
         group.barrier();
@@ -44,33 +45,95 @@ struct group_sum
 };
 
 
-int main() {
-    thrust::constant_iterator<float> x(0.5f/128.0f);
-    int outer_length = 128;
-    int inner_length = 128;
-    int overall_length = outer_length * inner_length;
-    thrust::device_vector<float> y(overall_length);
-    thrust::copy(x, x + overall_length, y.begin());
+using namespace cooperative::sequences;
 
-    cooperative::sequences::uniform_sequence<float, 0> inner_seq
-        (inner_length,
-         outer_length,
-         thrust::raw_pointer_cast(&y[0]));
-    cooperative::sequences::uniform_sequence<float, 1> outer_seq
-        (outer_length,
-         1,
-         inner_seq);
+size_t round_up_to_multiple(size_t d, size_t m) {
+    return (((d-1)/m)+1)*m;
+}
+
+void initialize_data(uniform_sequence<float, 1> h_seq) {
+    for(size_t i = 0; i < h_seq.size(); i++) {
+        for(size_t j = 0; j < h_seq[i].size(); j++) {
+            if (j==0) {
+                h_seq[i][j] = i;
+            } else {
+                h_seq[i][j] = 0.1;
+            }
+        }
+    }
+}
+
+void sequential_test(uniform_sequence<float, 1> h_seq,
+                     thrust::host_vector<float>& o) {
+    for(size_t i = 0; i < h_seq.size(); i++) {
+        float accumulator = 0;
+        for(size_t j = 0; j < h_seq[i].size(); j++) {
+            accumulator += h_seq[i][j];
+        }
+        o[i] = accumulator;
+    }
+}
+
+float error(thrust::host_vector<float>& g,
+            thrust::device_vector<float>& r) {
+    thrust::host_vector<float> h = r;
+    float accumulator = 0;
+    for(size_t i = 0; i < g.size(); i++) {
+        float delta = g[i] - h[i];
+        accumulator += delta * delta;
+    }
+    return accumulator;
+}
+
+int main() {
+    //Lengths
+    size_t outer_length = 10;
+    size_t inner_length = 32;
+    
+    //Padded, column-major data layout is determined by strides
+    size_t outer_stride = 1;
+    size_t inner_stride = round_up_to_multiple(outer_length, 16);
+
+    size_t storage_length = inner_stride * inner_length;
+
+    //Allocate container
+    thrust::host_vector<float> x(storage_length);
+
+    //Make uniform nested sequence view
+    uniform_sequence<float, 1> h_seq =
+        make_uniform_sequence(
+            thrust::make_tuple(outer_length, inner_length),
+            thrust::make_tuple(outer_stride, inner_stride),
+            thrust::raw_pointer_cast(&x[0]));
+
+    //Fill in some test data
+    initialize_data(h_seq);
+
+    //Compute sequential result
+    thrust::host_vector<float> golden(outer_length);
+    sequential_test(h_seq, golden);
+
+
+    //Make uniform nested sequence view on device
+    thrust::device_vector<float> y = x;
+
+    uniform_sequence<float, 1> seq =
+        make_uniform_sequence(
+            thrust::make_tuple(outer_length, inner_length),
+            thrust::make_tuple(outer_stride, inner_stride),
+            thrust::raw_pointer_cast(&y[0]));
 
     thrust::device_vector<float> r(outer_length);
 
-    group_sum<cooperative::sequences::uniform_sequence<float, 0> > f;
-    
-    thrust::transform(thrust::retag<cooperative::cuda::tag>(outer_seq.begin()),
-                      thrust::retag<cooperative::cuda::tag>(outer_seq.end()),
+    group_sum<uniform_sequence<float, 0> > f;
+
+    //Launch cooperative transform
+    thrust::transform(thrust::retag<cooperative::cuda::tag>(seq.begin()),
+                      thrust::retag<cooperative::cuda::tag>(seq.end()),
                       thrust::retag<cooperative::cuda::tag>(r.begin()),
                       f);
 
-
-    thrust::copy(r.begin(), r.end(), std::ostream_iterator<float>(std::cout, "\n"));                   
+    //Check errors
+    std::cout << "Error: " << error(golden, r) << std::endl;
     
 }
