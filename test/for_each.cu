@@ -41,7 +41,7 @@ struct multiply_by_reduction
 
 int main() {
     thrust::counting_iterator<int> x;
-    int length = 10;
+    int length = 100;
     thrust::device_vector<int> y(length);
     thrust::transform(thrust::retag<cooperative::cuda::tag>(x),
                       thrust::retag<cooperative::cuda::tag>(x+length),

@@ -18,7 +18,6 @@ transform(tag,
           InputIterator last,
           OutputIterator result,
           UnaryFunction op) {
-    std::cout << "My own transform is cooperative!" << std::endl;
     typedef thrust::tuple<InputIterator, OutputIterator> IteratorTuple;
     typedef thrust::zip_iterator<IteratorTuple> ZipIterator;
 
@@ -41,7 +40,6 @@ transform(tag,
           InputIterator last,
           OutputIterator result,
           UnaryFunction op) {
-    std::cout << "My own transform is not cooperative" << std::endl;
     thrust::transform(thrust::retag<thrust::system::cuda::tag>(first),
                       thrust::retag<thrust::system::cuda::tag>(last),
                       thrust::retag<thrust::system::cuda::tag>(result),
