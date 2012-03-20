@@ -28,13 +28,14 @@ struct multiply_by_reduction
         g.barrier();
         int offset = group_size >> 1;
         while(offset > 0) {
-            if (local_id < offset) 
+            if (local_id < offset)
                 scratch[local_id] += scratch[local_id+offset];
             g.barrier();
             offset >>= 1;
         }
         
         return scratch[local_id];
+        return g.local_thread_id();
     }
 
 };
