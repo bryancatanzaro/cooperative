@@ -3,7 +3,7 @@
 #include <cooperative/cuda/transform.h>
 #include <thrust/iterator/retag.h>
 #include <thrust/device_vector.h>
-
+#include <cooperative/group_config.h>
 #include <iostream>
 
 //Requires power of 2 thread block size
@@ -16,7 +16,7 @@ struct multiply_by_reduction
     typedef cooperative::cuda::unary_cooperative_function<T, T> super_t;
     __host__
     multiply_by_reduction()
-        : super_t(cooperative::cuda::group_config(64, 64 * sizeof(T))) {}
+        : super_t(cooperative::group_config(64, 64 * sizeof(T))) {}
     
     using cooperative::cuda::unary_cooperative_function<T, T>::g;
     __device__

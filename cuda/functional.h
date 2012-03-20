@@ -1,5 +1,5 @@
 #pragma once
-
+#include <cooperative/group_config.h>
 #include <cooperative/cuda/thread_group.h>
 #include <thrust/tuple.h>
 #include <thrust/functional.h>
