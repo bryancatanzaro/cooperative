@@ -18,7 +18,6 @@ struct multiply_by_reduction
     multiply_by_reduction()
         : super_t(cooperative::group_config(64, 64 * sizeof(T))) {}
     
-    using cooperative::cuda::unary_cooperative_function<T, T>::g;
     __device__
     T operator()(const T& v) const {
         T* scratch = g.template scratch<T>();
@@ -38,8 +37,7 @@ struct multiply_by_reduction
 
 };
 
-
-int main() {
+int main() {  
     thrust::counting_iterator<int> x(0);
     int length = 100;
     thrust::device_vector<int> y(length);
@@ -50,6 +48,5 @@ int main() {
 
 
     thrust::copy(y.begin(), y.end(), std::ostream_iterator<int>(std::cout, "\n"));
-                     
     
 }

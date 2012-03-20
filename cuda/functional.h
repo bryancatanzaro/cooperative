@@ -12,21 +12,20 @@ template<typename Argument,
          typename Result>
 struct unary_cooperative_function
     : thrust::unary_function<Argument, Result> {
-    typedef thrust::detail::true_type cooperative;
     
-    thread_group g;
-    group_config c;
+    thread_group group;
+    cooperative::group_config c;
     __host__ __device__
-    unary_cooperative_function(const group_config &_c)
+    unary_cooperative_function(const cooperative::group_config &_c)
         : c(_c) {}
     
     __device__
     void set_group(const thread_group& in) {
-        g = in;
+        group = in;
     }
 
     __host__ __device__
-    group_config get_config() const {
+    cooperative::group_config get_config() const {
         return c;
     }
 };
@@ -35,7 +34,6 @@ struct unary_cooperative_function
 template<typename UnaryCooperativeFunction>
 struct unary_cooperative_transform_functor {
     typedef void result_type;
-    typedef thrust::detail::true_type cooperative;
 
     UnaryCooperativeFunction f;
     thread_group g;
@@ -50,7 +48,7 @@ struct unary_cooperative_transform_functor {
     }
 
     __host__ __device__
-    group_config get_config() const {
+    cooperative::group_config get_config() const {
         return f.get_config();
     }
     

@@ -11,8 +11,7 @@ namespace cuda {
 template<typename InputIterator,
          typename OutputIterator,
          typename UnaryFunction>
-typename thrust::detail::enable_if<is_cooperative<UnaryFunction>::value,
-                                   OutputIterator>::type
+OutputIterator
 transform(tag,
           InputIterator first,
           InputIterator last,
@@ -30,21 +29,6 @@ transform(tag,
                          
 }
 
-template<typename InputIterator,
-         typename OutputIterator,
-         typename UnaryFunction>
-typename thrust::detail::disable_if<is_cooperative<UnaryFunction>::value,
-                                    OutputIterator>::type
-transform(tag,
-          InputIterator first,
-          InputIterator last,
-          OutputIterator result,
-          UnaryFunction op) {
-    thrust::transform(thrust::retag<thrust::system::cuda::tag>(first),
-                      thrust::retag<thrust::system::cuda::tag>(last),
-                      thrust::retag<thrust::system::cuda::tag>(result),
-                      op);
-}
 
 }
 }

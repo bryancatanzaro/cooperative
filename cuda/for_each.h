@@ -3,6 +3,7 @@
 #include <thrust/detail/static_assert.h>
 #include <thrust/distance.h>
 #include <cooperative/cuda/thread_group.h>
+#include <cooperative/group_config.h>
 #include <thrust/system/cuda/detail/detail/launch_calculator.h>
 #include <thrust/detail/minmax.h>
 
