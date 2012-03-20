@@ -10,27 +10,45 @@
 #include <iostream>
 #include <thrust/iterator/constant_iterator.h>
 
+
+//Functors which will be launched in a cooperative manner should
+//inherit from unary_cooperative_function.
+//XXX unary_cooperative_function should not be specific to cuda, needs
+//to be moved and generalized
 template<typename Seq>
 struct group_sum
     : public cooperative::cuda::unary_cooperative_function<Seq, typename Seq::value_type> {
     typedef typename Seq::value_type T;
     typedef cooperative::cuda::unary_cooperative_function<Seq, T> super_t;
+
+    //unary_cooperative_function takes a group_config argument
+    //describing the thread group configuration this function expects.
+    //In this case, I'm asking for the function to be launched in
+    //groups of 64 threads, and asking for enough scratchpad space to
+    //hold 64 elements of type T
     __host__
     group_sum()
         : super_t(cooperative::group_config(64, 64 * sizeof(T))) {}
+
+    //unary_cooperative_function provides a group member which gives
+    //access to thread ids, shared scratchpad, and barriers
     using super_t::group;
+
     __device__
     T operator()(const Seq& v) const {
         int local_id = group.local_thread_id();
         int group_size = group.group_size();
         T accumulator(0);
-        //Blockwise sequential sum
+        //Strided sequential sum
         for(int i = local_id; i < v.size(); i += group_size) {
             accumulator += v[i];
         }
         //Simple block parallel sum
+
+        //Ask for scratchpad from the group
         T* scratch = group.template scratch<T>();
         scratch[local_id] = accumulator;
+        //Group provides barrier
         group.barrier();
         int offset = group_size >> 1;
         while(offset > 0) {
@@ -39,6 +57,7 @@ struct group_sum
             group.barrier();
             offset >>= 1;
         }
+        //Convention is that only result from thread 0 will be used
         return scratch[local_id];
     }
 
